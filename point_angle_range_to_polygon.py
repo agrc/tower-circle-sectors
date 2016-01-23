@@ -1,35 +1,46 @@
 '''
-Created on Jan 22, 2016
-
-@author: kwalker
+Script tool to create coverage polygons for radio towers.
 '''
 import arcpy
+
 def createPointAngleRangePolygons():
-    pointFeatures = r"C:\KW_Working\TEMP\Temp.gdb\point_angle"
-    xField = ""
-    yField = ""
+    """azimuth: angle central to the coverage polygon.
+       range: radius of the coverage polygon. Must be in meters.
+       beamwidth: full arc of coverage. It is centered on the azimuth.
+       Output polygons will have the same spatial reference as the input point features"""
+    pointFeatures = r".\Temp.gdb\point_angle"
     azimuthField = "azimuth"
     rangeField = "range"
     beamWidthField = "beamwidth"
-    
-    polygonFeatures = r"C:\KW_Working\TEMP\Temp.gdb\pgon_angle"
-    pgon = []
+    #Polygon feature class will created by the tool. 
+    outputPolygonFeatures = r".\Temp.gdb\pgon_angle4"
+    polygons = []
     
     cursorFields = ["SHAPE@", azimuthField, rangeField, beamWidthField]
-    
     with arcpy.da.SearchCursor(pointFeatures, cursorFields) as cursor:
         for row in cursor:
-            startAngle
-            point1 = row[0].pointFromAngleAndDistance(row[1], row[2])
-            print point1.JSON
-            point2 = row[0].pointFromAngleAndDistance((row[1] + row[3]) % 360.0, row[2])
-            print point2.WKT
-            pgon.append(
+            centerPoint = row[0]
+            azimuth = row[1]
+            rangeDist = row[2]
+            beamWidth = row[3]
+            
+            startAngle = (azimuth + (360 - (beamWidth / 2.0))) % 360
+            print startAngle
+            radiusPoints = [centerPoint.centroid]
+            for i in range(int(beamWidth) + 1):
+                angle = (startAngle + i) % 360
+                print angle
+                radPoint = centerPoint.pointFromAngleAndDistance(angle, rangeDist)
+                radiusPoints.append(radPoint.centroid)
+                
+            polygons.append(
                 arcpy.Polygon(
-                    arcpy.Array([row[0].centroid, point1.centroid, point2.centroid]), 
-                    row[0].spatialReference))
+                    arcpy.Array(radiusPoints), 
+                    centerPoint.spatialReference))
             print 
             
-    arcpy.CopyFeatures_management(pgon, polygonFeatures)
+    arcpy.CopyFeatures_management(polygons, outputPolygonFeatures)
 
-def calculateRadiusPoints ():
+if __name__ == "__main__":
+    createPointAngleRangePolygons()
+    
