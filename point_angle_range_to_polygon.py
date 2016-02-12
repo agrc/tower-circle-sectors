@@ -16,13 +16,13 @@ def createPointAngleRangePolygons(points, outputPolygons, azimuthField, rangeFie
     outputPolygonFeatures = outputPolygons
     polygons = []
     
-    cursorFields = ["SHAPE@", azimuthField, rangeField, beamWidthField]
+    cursorFields = ["SHAPE@", "*"]
     with arcpy.da.SearchCursor(pointFeatures, cursorFields) as cursor:
         for row in cursor:
             centerPoint = row[0]
-            azimuth = row[1]
-            rangeDist = row[2]
-            beamWidth = row[3]
+            azimuth = row[cursor.fields.index(azimuthField)]
+            rangeDist = row[cursor.fields.index(rangeField)]
+            beamWidth = row[cursor.fields.index(beamWidthField)]
             
             startAngle = (azimuth + (360 - (beamWidth / 2.0))) % 360
             print startAngle
@@ -43,16 +43,34 @@ def createPointAngleRangePolygons(points, outputPolygons, azimuthField, rangeFie
     arcpy.CopyFeatures_management(polygons, outputPolygonFeatures)
 
 if __name__ == "__main__":
-    points = arcpy.GetParameterAsText(0)
-    azimuthField = arcpy.GetParameterAsText(1)
-    rangeField = arcpy.GetParameterAsText(2)
-    beamWidthField = arcpy.GetParameterAsText(3)
-    outputDirectory = arcpy.GetParameterAsText(4)
-    uniqueString = time.strftime("%Y%m%d%H%M%S")
-    outputPolygons = os.path.join(outputDirectory, "CircleSectors_" + uniqueString)
-    arcpy.SetParameter(5, outputPolygons)
+    testing = True
+    if testing:
+        points = r"C:\Users\Administrator\My Documents\Aptana Studio 3 Workspace\tower-circle-sectors\data\Temp.gdb\point_angle"
+        azimuthField = "azimuth"
+        rangeField = "range"
+        beamWidthField = "beamwidth"
+        outputDirectory = r"C:\Users\Administrator\My Documents\Aptana Studio 3 Workspace\tower-circle-sectors\data\Temp.gdb"
+        uniqueString = time.strftime("%Y%m%d%H%M%S")
+        outputPolygons = os.path.join(outputDirectory, "CircleSectors_" + uniqueString)
+        arcpy.SetParameter(5, outputPolygons) 
+    else:
+        points = arcpy.GetParameterAsText(0)
+        azimuthField = arcpy.GetParameterAsText(1)
+        rangeField = arcpy.GetParameterAsText(2)
+        beamWidthField = arcpy.GetParameterAsText(3)
+        outputDirectory = arcpy.GetParameterAsText(4)
+        uniqueString = time.strftime("%Y%m%d%H%M%S")
+        outputPolygons = os.path.join(outputDirectory, "CircleSectors_" + uniqueString)
+        arcpy.SetParameter(5, outputPolygons)
     
     arcpy.AddMessage("Version 1.0")
-    createPointAngleRangePolygons(points, outputPolygons, azimuthField, rangeField, beamWidthField)
+    
+    field_names = [f.name for f in arcpy.ListFields(points)]
+    print field_names
+    c = arcpy.da.SearchCursor(points, field_names)
+    print c.fields
+#     print arcpy.CreateFeatureclass_management (outputDirectory, "CircleSectors_" + uniqueString + "c", 
+#                                          "POLYGON", points)
+    #createPointAngleRangePolygons(points, outputPolygons, azimuthField, rangeField, beamWidthField)
     arcpy.AddMessage("completed")
     
