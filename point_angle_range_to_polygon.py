@@ -12,65 +12,67 @@ def createPointAngleRangePolygons(points, outputPolygons, azimuthField, rangeFie
     azimuthField = azimuthField
     rangeField = rangeField
     beamWidthField = beamWidthField
-    #Polygon feature class will created by the tool. 
     outputPolygonFeatures = outputPolygons
     polygons = []
-    
-    cursorFields = ["SHAPE@", "*"]
+    #Setup field list for point search cursor and polygon insert cursor    
+    cursorFields = [f.name for f in arcpy.ListFields(pointFeatures)]
+    cursorFields.remove('SHAPE')
+    cursorFields.append("SHAPE@")
+    polygonInsCursor = arcpy.da.InsertCursor(outputPolygonFeatures, cursorFields)
     with arcpy.da.SearchCursor(pointFeatures, cursorFields) as cursor:
         for row in cursor:
-            centerPoint = row[0]
+            centerPoint = row[len(cursorFields) - 1]
             azimuth = row[cursor.fields.index(azimuthField)]
             rangeDist = row[cursor.fields.index(rangeField)]
             beamWidth = row[cursor.fields.index(beamWidthField)]
             
             startAngle = (azimuth + (360 - (beamWidth / 2.0))) % 360
-            print startAngle
             radiusPoints = [centerPoint.centroid]
             #Create a point every 1 degree around the arc
             for i in range(int(beamWidth) + 1):
                 angle = (startAngle + i) % 360
-                print angle
                 radPoint = centerPoint.pointFromAngleAndDistance(angle, rangeDist)
                 radiusPoints.append(radPoint.centroid)
-                
-            polygons.append(
-                arcpy.Polygon(
-                    arcpy.Array(radiusPoints), 
-                    centerPoint.spatialReference))
-            print 
+            #Use point row as polygon insert row with new polygon geometery subsituted for point
+            newRow = [f for f in row]
+            newRow[len(newRow) - 1] = arcpy.Polygon(arcpy.Array(radiusPoints), centerPoint.spatialReference)   
+            polygonInsCursor.insertRow(newRow)
+
+    del polygonInsCursor 
             
-    arcpy.CopyFeatures_management(polygons, outputPolygonFeatures)
 
 if __name__ == "__main__":
     testing = True
     if testing:
-        points = r"C:\Users\Administrator\My Documents\Aptana Studio 3 Workspace\tower-circle-sectors\data\Temp.gdb\point_angle"
+        points = r".\data\Temp.gdb\point_angle"
         azimuthField = "azimuth"
         rangeField = "range"
         beamWidthField = "beamwidth"
-        outputDirectory = r"C:\Users\Administrator\My Documents\Aptana Studio 3 Workspace\tower-circle-sectors\data\Temp.gdb"
-        uniqueString = time.strftime("%Y%m%d%H%M%S")
-        outputPolygons = os.path.join(outputDirectory, "CircleSectors_" + uniqueString)
+        outputWorkspace = r".\data\Temp.gdb"
+        uniqueString = time.strftime("%Y%m%d_%H%M%S")
+        outputPolygons = "CircleSectors_" + uniqueString
         arcpy.SetParameter(5, outputPolygons) 
     else:
         points = arcpy.GetParameterAsText(0)
         azimuthField = arcpy.GetParameterAsText(1)
         rangeField = arcpy.GetParameterAsText(2)
         beamWidthField = arcpy.GetParameterAsText(3)
-        outputDirectory = arcpy.GetParameterAsText(4)
-        uniqueString = time.strftime("%Y%m%d%H%M%S")
-        outputPolygons = os.path.join(outputDirectory, "CircleSectors_" + uniqueString)
+        outputWorkspace = arcpy.GetParameterAsText(4)
+        uniqueString = time.strftime("%Y%m%d_%H%M%S")
+        outputPolygons = "CircleSectors_" + uniqueString
         arcpy.SetParameter(5, outputPolygons)
     
-    arcpy.AddMessage("Version 1.0")
-    
-    field_names = [f.name for f in arcpy.ListFields(points)]
-    print field_names
-    c = arcpy.da.SearchCursor(points, field_names)
-    print c.fields
-#     print arcpy.CreateFeatureclass_management (outputDirectory, "CircleSectors_" + uniqueString + "c", 
-#                                          "POLYGON", points)
-    #createPointAngleRangePolygons(points, outputPolygons, azimuthField, rangeField, beamWidthField)
+    arcpy.AddMessage("Version 1.1")
+    pointsSpatialRef = arcpy.Describe(points).spatialReference
+    arcpy.CreateFeatureclass_management (outputWorkspace, 
+                                         outputPolygons, 
+                                         "POLYGON", 
+                                         points,
+                                         spatial_reference=pointsSpatialRef)
+    createPointAngleRangePolygons(points, 
+                                  os.path.join(outputWorkspace, outputPolygons),
+                                  azimuthField, 
+                                  rangeField, 
+                                  beamWidthField)
     arcpy.AddMessage("completed")
     
