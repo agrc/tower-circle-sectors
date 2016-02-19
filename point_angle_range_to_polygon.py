@@ -17,11 +17,11 @@ def createPointAngleRangePolygons(points, outputPolygons, azimuthField, rangeFie
     #Setup field list for point search cursor and polygon insert cursor    
     cursorFields = [f.name for f in arcpy.ListFields(pointFeatures)]
     cursorFields.remove('SHAPE')
-    cursorFields.append("SHAPE@")
+    cursorFields.append('SHAPE@')
     polygonInsCursor = arcpy.da.InsertCursor(outputPolygonFeatures, cursorFields)
     with arcpy.da.SearchCursor(pointFeatures, cursorFields) as cursor:
         for row in cursor:
-            centerPoint = row[len(cursorFields) - 1]
+            centerPoint = row[cursor.fields.index('SHAPE@')]
             azimuth = row[cursor.fields.index(azimuthField)]
             rangeDist = row[cursor.fields.index(rangeField)]
             beamWidth = row[cursor.fields.index(beamWidthField)]
@@ -34,15 +34,15 @@ def createPointAngleRangePolygons(points, outputPolygons, azimuthField, rangeFie
                 radPoint = centerPoint.pointFromAngleAndDistance(angle, rangeDist)
                 radiusPoints.append(radPoint.centroid)
             #Use point row as polygon insert row with new polygon geometery subsituted for point
-            newRow = [f for f in row]
-            newRow[len(newRow) - 1] = arcpy.Polygon(arcpy.Array(radiusPoints), centerPoint.spatialReference)   
+            newRow = list(row)
+            newRow[cursor.fields.index('SHAPE@')] = arcpy.Polygon(arcpy.Array(radiusPoints), centerPoint.spatialReference)   
             polygonInsCursor.insertRow(newRow)
 
     del polygonInsCursor 
             
 
 if __name__ == "__main__":
-    testing = True
+    testing = False
     if testing:
         points = r".\data\Temp.gdb\point_angle"
         azimuthField = "azimuth"
@@ -62,7 +62,7 @@ if __name__ == "__main__":
         outputPolygons = "CircleSectors_" + uniqueString
         arcpy.SetParameter(5, outputPolygons)
     
-    arcpy.AddMessage("Version 1.1")
+    arcpy.AddMessage("Version 1.1.2")
     pointsSpatialRef = arcpy.Describe(points).spatialReference
     arcpy.CreateFeatureclass_management (outputWorkspace, 
                                          outputPolygons, 
